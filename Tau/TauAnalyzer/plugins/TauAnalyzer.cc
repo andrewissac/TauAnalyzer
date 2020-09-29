@@ -31,6 +31,13 @@
  #include "FWCore/Utilities/interface/InputTag.h"
  #include "DataFormats/TrackReco/interface/Track.h"
  #include "DataFormats/TrackReco/interface/TrackFwd.h"
+
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
+
+#include "DataFormats/PatCandidates/interface/Tau.h"
 //
 // class declaration
 //
@@ -58,6 +65,7 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
       // ----------member data ---------------------------
       //edm::EDGetTokenT<TrackCollection> tracksToken_;  //used to select what tracks to read from configuration file
+      edm::EDGetTokenT<std::vector<pat::Tau>> slimmedTausToken;
 };
 
 //
@@ -74,10 +82,10 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig)
  //:
   //tracksToken_(consumes<TrackCollection>(iConfig.getUntrackedParameter<edm::InputTag>("tracks")))
-
 {
    //now do what ever initialization is needed
-
+   edm::InputTag slimmedTauTag("slimmedTaus");
+   slimmedTausToken = consumes<pat::TauCollection>(slimmedTauTag);
 }
 
 
@@ -98,7 +106,14 @@ TauAnalyzer::~TauAnalyzer()
 void
 TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-   using namespace edm;
+   //using namespace edm;
+
+    edm::Handle<pat::TauCollection> slimmedTausCollection;
+    iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
+
+   for (auto&& tau : *(slimmedTausCollection.product())){
+      
+   }
 
 
 #ifdef THIS_IS_AN_EVENT_EXAMPLE
