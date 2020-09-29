@@ -111,8 +111,35 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     edm::Handle<pat::TauCollection> slimmedTausCollection;
     iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
 
+   int i = 0;
    for (auto&& tau : *(slimmedTausCollection.product())){
-      
+      float decayMode = (float)tau.decayMode();
+      float dxy = (float)tau.dxy();
+      //float dz = (float)tau.dz();
+      //auto correctedP4 = new reco::Candidate::PolarLorentzVector(tau.correctedP4(tau.currentJECLevel()));
+      //reco::LeafCandidate::LorentzVector correctedP4 = tau.correctedP4(tau.currentJECLevel());
+      std::cout << correctedP4 << std::endl;
+      // float pt -> correctedP4.pt();
+      // float eta -> correctedP4.eta();
+      // float phi -> correctedP4.phi();
+      // float m -> correctedP4.mass();
+      float ecalEnergy = (float)tau.ecalEnergy();
+      float hcalEnergy = (float)tau.hcalEnergy();
+      float ip3d = (float)tau.ip3d();
+
+      if(i > 90000){
+         std::cout << "decayMode: " << decayMode << std::endl;
+         std::cout << "dxy: " << dxy << std::endl;
+         //std::cout << "dz: " << dz << std::endl;
+         // std::cout << "pt: " << pt << std::endl;
+         // std::cout << "eta: " << eta << std::endl;
+         // std::cout << "phi: " << phi << std::endl;
+         // std::cout << "m: " << m << std::endl;
+         std::cout << "ecalEnergy: " << ecalEnergy << std::endl;
+         std::cout << "hcalEnergy: " << hcalEnergy << std::endl;
+         std::cout << "ip3d: " << ip3d << std::endl;
+      }
+      i++;
    }
 
 
