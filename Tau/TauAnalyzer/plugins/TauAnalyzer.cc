@@ -38,6 +38,8 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
 #include "DataFormats/PatCandidates/interface/Tau.h"
+#include "TTree.h"
+#include "TFile.h"
 //
 // class declaration
 //
@@ -66,6 +68,21 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       // ----------member data ---------------------------
       //edm::EDGetTokenT<TrackCollection> tracksToken_;  //used to select what tracks to read from configuration file
       edm::EDGetTokenT<std::vector<pat::Tau>> slimmedTausToken;
+
+      TTree *tree;
+
+      // Taus
+      const static int max_tau = 1000;
+      UInt_t value_tau_n;
+      float value_tau_pt[max_tau];
+      float value_tau_eta[max_tau];
+      float value_tau_phi[max_tau];
+      float value_tau_mass[max_tau];
+      float value_tau_dxy[max_tau];
+      float value_tau_decayMode[max_tau];
+      float value_tau_ecalEnergy[max_tau];
+      float value_tau_hcalEnergy[max_tau];
+      float value_tau_ip3d[max_tau];
 };
 
 //
@@ -80,12 +97,24 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 // constructors and destructor
 //
 TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig)
- //:
-  //tracksToken_(consumes<TrackCollection>(iConfig.getUntrackedParameter<edm::InputTag>("tracks")))
 {
    //now do what ever initialization is needed
    edm::InputTag slimmedTauTag("slimmedTaus");
    slimmedTausToken = consumes<pat::TauCollection>(slimmedTauTag);
+   // create tree
+   edm::Service<TFileService> fs;
+   tree = fs->make<TTree>("Events", "Events");
+
+   // Create tree branches
+   tree->Branch("Tau_pt", value_tau_pt, "Tau_pt/F");
+   tree->Branch("Tau_eta", value_tau_eta, "Tau_eta/F");
+   tree->Branch("Tau_phi", value_tau_phi, "Tau_phi/F");
+   tree->Branch("Tau_mass", value_tau_mass, "Tau_mass/F");
+   tree->Branch("Tau_dxy", value_tau_dxy, "Tau_dxy/F");
+   tree->Branch("Tau_decayMode", value_tau_decayMode, "Tau_decayMode/F");
+   tree->Branch("Tau_ecalEnergy", value_tau_ecalEnergy, "Tau_ecalEnergy/F");
+   tree->Branch("Tau_hcalEnergy", value_tau_hcalEnergy, "Tau_hcalEnergy/F");
+   tree->Branch("Tau_ip3d", value_tau_ip3d, "Tau_ip3d/F");
 }
 
 
@@ -111,30 +140,30 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     edm::Handle<pat::TauCollection> slimmedTausCollection;
     iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
 
-
+   value_tau_n = 0;
    for (auto it = slimmedTausCollection->begin(); it != slimmedTausCollection->end(); it++) {
-      const auto p4 = it->p4();
-      float pt = (float)p4.pt();
-      float eta = (float)p4.eta();
-      float phi = (float)p4.phi();
-      float m = (float)p4.mass();
+      // how toget p4 lorentzvector:
+      // const auto p4 = it->p4();
+      // float pt = (float)p4.pt();
+      // float eta = (float)p4.eta();
+      // float phi = (float)p4.phi();
+      // float mass = (float)p4.mass();
 
-      float dxy = (float)it->dxy();
-      float decayMode = (float)it->decayMode();
-      float ecalEnergy = (float)it->ecalEnergy();
-      float hcalEnergy = (float)it->hcalEnergy();
-      float ip3d = (float)it->ip3d();
+      value_tau_pt[value_tau_n] = (float)it->pt();
+      value_tau_eta[value_tau_n] = (float)it->eta();
+      value_tau_phi[value_tau_n] = (float)it->phi();
+      value_tau_mass[value_tau_n] = (float)it->mass();
+      value_tau_dxy[value_tau_n] = (float)it->dxy();
+      value_tau_decayMode[value_tau_n] = (float)it->decayMode();
+      value_tau_ecalEnergy[value_tau_n] = (float)it->ecalEnergy();
+      value_tau_hcalEnergy[value_tau_n] = (float)it->hcalEnergy();
+      value_tau_ip3d[value_tau_n] = (float)it->ip3d();
 
-      // std::cout << "decayMode: " << decayMode << std::endl;
-      // std::cout << "dxy: " << dxy << std::endl;
-      // std::cout << "pt: " << pt << std::endl;
-      // std::cout << "eta: " << eta << std::endl;
-      // std::cout << "phi: " << phi << std::endl;
-      // std::cout << "m: " << m << std::endl;
-      // std::cout << "ecalEnergy: " << ecalEnergy << std::endl;
-      // std::cout << "hcalEnergy: " << hcalEnergy << std::endl;
-      // std::cout << "ip3d: " << ip3d << std::endl;
+      value_tau_n++;
    }
+
+   // Fill event to tree
+   tree->Fill();
 
 
 #ifdef THIS_IS_AN_EVENT_EXAMPLE

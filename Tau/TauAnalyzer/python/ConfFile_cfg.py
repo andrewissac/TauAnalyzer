@@ -20,7 +20,8 @@ process.source = cms.Source("PoolSource",
                 )
                             )
 
-process.tauEDAnalyzer = cms.EDAnalyzer('TauAnalyzer'
-                              )
+process.tauEDAnalyzer = cms.EDAnalyzer('TauAnalyzer')
+
+process.TFileService = cms.Service( "TFileService", fileName=cms.string("output.root"))
 
 process.p = cms.Path(process.tauEDAnalyzer)
