@@ -34,5 +34,6 @@ process.source = cms.Source("PoolSource",
 process.tauEDAnalyzer = cms.EDAnalyzer('TauAnalyzer')
 
 process.TFileService = cms.Service( "TFileService", fileName=cms.string("output_{:04d}_{}.root".format(arguments_jobID, dataset)))
+#process.TFileService = cms.Service( "TFileService", fileName=cms.string("test.root"))
 
 process.p = cms.Path(process.tauEDAnalyzer)

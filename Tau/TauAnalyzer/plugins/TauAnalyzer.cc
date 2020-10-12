@@ -83,6 +83,16 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       float value_tau_ecalEnergy[max_tau];
       float value_tau_hcalEnergy[max_tau];
       float value_tau_ip3d[max_tau];
+
+      // Generator particles
+      // const static int max_gen = 1000;
+      // UInt_t value_gen_n;
+      // float value_gen_pt[max_gen];
+      // float value_gen_eta[max_gen];
+      // float value_gen_phi[max_gen];
+      // float value_gen_mass[max_gen];
+      // float value_gen_pdgid[max_gen]; // typically int
+      // float value_gen_status[max_gen]; // typically int
 };
 
 //
@@ -96,16 +106,18 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 //
 // constructors and destructor
 //
-TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig)
+TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig) //: isData(iConfig.getParameter<bool>("isData"))
 {
    //now do what ever initialization is needed
    edm::InputTag slimmedTauTag("slimmedTaus");
    slimmedTausToken = consumes<pat::TauCollection>(slimmedTauTag);
+
    // create tree
    edm::Service<TFileService> fs;
    tree = fs->make<TTree>("Events", "Events");
 
    // Create tree branches
+   // Taus
    tree->Branch("Tau_pt", value_tau_pt, "Tau_pt/F");
    tree->Branch("Tau_eta", value_tau_eta, "Tau_eta/F");
    tree->Branch("Tau_phi", value_tau_phi, "Tau_phi/F");
@@ -115,6 +127,15 @@ TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig)
    tree->Branch("Tau_ecalEnergy", value_tau_ecalEnergy, "Tau_ecalEnergy/F");
    tree->Branch("Tau_hcalEnergy", value_tau_hcalEnergy, "Tau_hcalEnergy/F");
    tree->Branch("Tau_ip3d", value_tau_ip3d, "Tau_ip3d/F");
+   // Generator particles
+//   if (!isData) {
+//       tree->Branch("GenPart_pt", value_gen_pt, "GenPart_pt/F");
+//       tree->Branch("GenPart_eta", value_gen_eta, "GenPart_eta/F");
+//       tree->Branch("GenPart_phi", value_gen_phi, "GenPart_phi/F");
+//       tree->Branch("GenPart_mass", value_gen_mass, "GenPart_mass/F");
+//       tree->Branch("GenPart_pdgId", value_gen_pdgid, "GenPart_pdgId/F");
+//       tree->Branch("GenPart_status", value_gen_status, "GenPart_status/F");
+//   }
 }
 
 
@@ -137,17 +158,15 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    //using namespace edm;
 
-    edm::Handle<pat::TauCollection> slimmedTausCollection;
-    iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
+   // Get Taus
+   edm::Handle<pat::TauCollection> slimmedTausCollection;
+   //iEvent.getByLabel(edm::InputTag("slimmedTaus"), slimmedTausCollection); <- for some reason doesn't
+   iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
 
    value_tau_n = 0;
    for (auto it = slimmedTausCollection->begin(); it != slimmedTausCollection->end(); it++) {
-      // how toget p4 lorentzvector:
+      // p4 lorentzvector:
       // const auto p4 = it->p4();
-      // float pt = (float)p4.pt();
-      // float eta = (float)p4.eta();
-      // float phi = (float)p4.phi();
-      // float mass = (float)p4.mass();
 
       value_tau_pt[value_tau_n] = (float)it->pt();
       value_tau_eta[value_tau_n] = (float)it->eta();
@@ -161,6 +180,44 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       value_tau_n++;
    }
+
+   // Generator Particles handling
+   // if(!isData){
+   //    edm::Handle<reco::GenParticleCollection> genParticleCollection;
+   //    iEvent.getByLabel(edm::InputTag("genParticles"), genParticleCollection);
+
+   //    value_gen_n = 0;
+   //    std::vector<reco::GenParticle> interestingGenParticles;
+   //    for(auto it = genParticleCollection->begin(); it != genParticleCollection->end(); it++){
+   //       const auto status = it->status();
+   //       const auto pdgId = std::abs(it->pdgId());
+   //       if (status == 2 && pdgId == 15) { // tau
+   //          interestingGenParticles.emplace_back(*it);
+   //       }
+   //    }
+
+   //    // stole this snippet from Stefan, will be useful later on
+   //    // Match taus with gen particles and jets
+   //    for (auto p = selectedTaus.begin(); p != selectedTaus.end(); p++) {
+   //       // Gen particle matching
+   //       auto p4 = p->p4();
+   //       auto idx = findBestVisibleMatch(interestingGenParticles, p4); // TODO: Subtract the invisible parts only once.
+   //       if (idx != -1) {
+   //          auto g = interestingGenParticles.begin() + idx;
+   //          value_gen_pt[value_gen_n] = g->pt();
+   //          value_gen_eta[value_gen_n] = g->eta();
+   //          value_gen_phi[value_gen_n] = g->phi();
+   //          value_gen_mass[value_gen_n] = g->mass();
+   //          value_gen_pdgid[value_gen_n] = g->pdgId();
+   //          value_gen_status[value_gen_n] = g->status();
+   //          value_tau_genpartidx[p - selectedTaus.begin()] = value_gen_n;
+   //          value_gen_n++;
+   //       }
+
+   //       // Jet matching
+   //       value_tau_jetidx[p - selectedTaus.begin()] = findBestMatch(selectedJets, p4);
+   //    }
+   // }
 
    // Fill event to tree
    tree->Fill();
