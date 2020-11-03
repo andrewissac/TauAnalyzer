@@ -38,6 +38,8 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
 #include "DataFormats/PatCandidates/interface/Tau.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
 #include "TTree.h"
 #include "TFile.h"
 //
@@ -72,17 +74,16 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       TTree *tree;
 
       // Taus
-      const static int max_tau = 1000;
       UInt_t value_tau_n;
-      float value_tau_pt[max_tau];
-      float value_tau_eta[max_tau];
-      float value_tau_phi[max_tau];
-      float value_tau_mass[max_tau];
-      float value_tau_dxy[max_tau];
-      float value_tau_decayMode[max_tau];
-      float value_tau_ecalEnergy[max_tau];
-      float value_tau_hcalEnergy[max_tau];
-      float value_tau_ip3d[max_tau];
+      float value_tau_pt;
+      float value_tau_eta;
+      float value_tau_phi;
+      float value_tau_mass;
+      float value_tau_dxy;
+      float value_tau_decayMode;
+      float value_tau_ecalEnergy;
+      float value_tau_hcalEnergy;
+      float value_tau_ip3d;
 
       // Generator particles
       // const static int max_gen = 1000;
@@ -118,15 +119,15 @@ TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig) //: isData(iConfig.ge
 
    // Create tree branches
    // Taus
-   tree->Branch("Tau_pt", value_tau_pt, "Tau_pt/F");
-   tree->Branch("Tau_eta", value_tau_eta, "Tau_eta/F");
-   tree->Branch("Tau_phi", value_tau_phi, "Tau_phi/F");
-   tree->Branch("Tau_mass", value_tau_mass, "Tau_mass/F");
-   tree->Branch("Tau_dxy", value_tau_dxy, "Tau_dxy/F");
-   tree->Branch("Tau_decayMode", value_tau_decayMode, "Tau_decayMode/F");
-   tree->Branch("Tau_ecalEnergy", value_tau_ecalEnergy, "Tau_ecalEnergy/F");
-   tree->Branch("Tau_hcalEnergy", value_tau_hcalEnergy, "Tau_hcalEnergy/F");
-   tree->Branch("Tau_ip3d", value_tau_ip3d, "Tau_ip3d/F");
+   tree->Branch("Tau_pt", &value_tau_pt, "Tau_pt/F");
+   tree->Branch("Tau_eta", &value_tau_eta, "Tau_eta/F");
+   tree->Branch("Tau_phi", &value_tau_phi, "Tau_phi/F");
+   tree->Branch("Tau_mass", &value_tau_mass, "Tau_mass/F");
+   tree->Branch("Tau_dxy", &value_tau_dxy, "Tau_dxy/F");
+   tree->Branch("Tau_decayMode", &value_tau_decayMode, "Tau_decayMode/F");
+   tree->Branch("Tau_ecalEnergy", &value_tau_ecalEnergy, "Tau_ecalEnergy/F");
+   tree->Branch("Tau_hcalEnergy", &value_tau_hcalEnergy, "Tau_hcalEnergy/F");
+   tree->Branch("Tau_ip3d", &value_tau_ip3d, "Tau_ip3d/F");
    // Generator particles
 //   if (!isData) {
 //       tree->Branch("GenPart_pt", value_gen_pt, "GenPart_pt/F");
@@ -168,15 +169,23 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       // p4 lorentzvector:
       // const auto p4 = it->p4();
 
-      value_tau_pt[value_tau_n] = (float)it->pt();
-      value_tau_eta[value_tau_n] = (float)it->eta();
-      value_tau_phi[value_tau_n] = (float)it->phi();
-      value_tau_mass[value_tau_n] = (float)it->mass();
-      value_tau_dxy[value_tau_n] = (float)it->dxy();
-      value_tau_decayMode[value_tau_n] = (float)it->decayMode();
-      value_tau_ecalEnergy[value_tau_n] = (float)it->ecalEnergy();
-      value_tau_hcalEnergy[value_tau_n] = (float)it->hcalEnergy();
-      value_tau_ip3d[value_tau_n] = (float)it->ip3d();
+      const float dxy = (float)it->dxy();
+      const float decayMode = (float)it->decayMode();
+      // Selection rules
+      if(dxy < -990 || decayMode == 5 || decayMode == 6) continue;
+
+      value_tau_pt = (float)it->pt();
+      value_tau_eta = (float)it->eta();
+      value_tau_phi= (float)it->phi();
+      value_tau_mass = (float)it->mass();
+      value_tau_dxy = dxy;
+      value_tau_decayMode = decayMode;
+      value_tau_ecalEnergy = (float)it->ecalEnergy();
+      value_tau_hcalEnergy = (float)it->hcalEnergy();
+      value_tau_ip3d = (float)it->ip3d();
+
+      // Fill event to tree
+      tree->Fill();
 
       value_tau_n++;
    }
@@ -218,9 +227,6 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    //       value_tau_jetidx[p - selectedTaus.begin()] = findBestMatch(selectedJets, p4);
    //    }
    // }
-
-   // Fill event to tree
-   tree->Fill();
 
 
 #ifdef THIS_IS_AN_EVENT_EXAMPLE

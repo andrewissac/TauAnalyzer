@@ -18,7 +18,7 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 #                                 # replace 'myfile.root' with the source file you want to use
 #                                 fileNames = cms.untracked.vstring(
 #             #'file:/ceph/sbrommer/tau_id/dy_testsample/FEB3954C-4942-E811-8A09-008CFAC91A38.root'
-#             #'/store/mc/RunIIFall17MiniAODv2/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/MINIAODSIM/PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/40000/6A62DE01-E641-E811-AFF1-008CFAC94038.root'
+#             '/store/mc/RunIIFall17MiniAODv2/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/MINIAODSIM/PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/40000/6A62DE01-E641-E811-AFF1-008CFAC94038.root'
 #                 )
 #                             )
 
