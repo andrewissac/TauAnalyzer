@@ -75,6 +75,9 @@ class TauAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
       // Taus
       UInt_t value_tau_n;
+      Int_t value_run;
+      UInt_t value_lumi_block;
+      ULong64_t value_event;
       float value_tau_pt;
       float value_tau_eta;
       float value_tau_phi;
@@ -117,6 +120,10 @@ TauAnalyzer::TauAnalyzer(const edm::ParameterSet& iConfig) //: isData(iConfig.ge
    edm::Service<TFileService> fs;
    tree = fs->make<TTree>("Events", "Events");
 
+   // Event information
+   tree->Branch("run", &value_run);
+   tree->Branch("luminosityBlock", &value_lumi_block);
+   tree->Branch("event", &value_event);
    // Create tree branches
    // Taus
    tree->Branch("Tau_pt", &value_tau_pt, "Tau_pt/F");
@@ -163,6 +170,11 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    edm::Handle<pat::TauCollection> slimmedTausCollection;
    //iEvent.getByLabel(edm::InputTag("slimmedTaus"), slimmedTausCollection); <- for some reason doesn't
    iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
+
+   // Event information
+   value_run = iEvent.run();
+   value_lumi_block = iEvent.luminosityBlock();
+   value_event = iEvent.id().event();
 
    value_tau_n = 0;
    for (auto it = slimmedTausCollection->begin(); it != slimmedTausCollection->end(); it++) {

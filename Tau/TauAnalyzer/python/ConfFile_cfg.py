@@ -25,6 +25,7 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 arguments_jobID = int(sys.argv[2]) 
 inputfile = str(sys.argv[3]) # this takes the filename of the root file passed in from job.sh from running cmsRun mypath/ConfFile_cfg.py myfile.root (in this case: sys.argv[3] = myfile.root )
 dataset = str(sys.argv[4])
+outputdir = str(sys.argv[5])
 
 process.source = cms.Source("PoolSource",
                                 # replace 'myfile.root' with the source file you want to use
@@ -32,8 +33,8 @@ process.source = cms.Source("PoolSource",
                             )
 
 process.tauEDAnalyzer = cms.EDAnalyzer('TauAnalyzer')
-
-process.TFileService = cms.Service( "TFileService", fileName=cms.string("output_{:04d}_{}.root".format(arguments_jobID, dataset)))
-#process.TFileService = cms.Service( "TFileService", fileName=cms.string("test.root"))
+from os import path
+process.TFileService = cms.Service( "TFileService", fileName=cms.string(path.join(outputdir,"output_{:04d}_{}.root".format(arguments_jobID, dataset))))
+# process.TFileService = cms.Service( "TFileService", fileName=cms.string("test.root"))
 
 process.p = cms.Path(process.tauEDAnalyzer)
