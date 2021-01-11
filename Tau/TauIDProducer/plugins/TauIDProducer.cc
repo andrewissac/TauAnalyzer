@@ -30,6 +30,27 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
+#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
+
+namespace nn_inputs{
+   constexpr int NumberOfOutputs = 2;
+   constexpr int NumberOfInputs = 9;
+   namespace TauInputs{
+      enum vars{
+         Tau_pt = 0,
+         Tau_eta,
+         Tau_phi,
+         Tau_mass,
+         Tau_dxy,
+         Tau_decayMode,
+         Tau_ecalEnergy,
+         Tau_hcalEnergy,
+         Tau_ip3d
+      }
+   }
+}
+
+
 
 //
 // class declaration
@@ -54,52 +75,97 @@ class TauIDProducer : public edm::stream::EDProducer<> {
 
       // ----------member data ---------------------------
       edm::InputTag src_;
+      edm::EDGetTokenT<std::vector<pat::Tau>> slimmedTausToken;
+
+      const std::string graphPath;
+      tensorflow::GraphDef graph;
+      tensorflow::Session* session;
+      std::unique_ptr<tensorflow::Tensor> tauTensor;
+
+      tensorflow::Tensor getPredictions(edm::Event& iEvent, edm::Handle<TauCollection> taus);
+      void createTauInputs(const pat::Tau& tau,const size_t& tau_index);
+      void createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection)
 };
-
-//
-// constants, enums and typedefs
-//
-
-
-//
-// static data member definitions
-//
 
 //
 // constructors and destructor
 //
 TauIDProducer::TauIDProducer(const edm::ParameterSet& iConfig)
 {
-   //register your products
-/* Examples
-   produces<ExampleData2>();
-
-   //if do put with a label
-   produces<ExampleData2>("label");
- 
-   //if you want to put into the Run
-   produces<ExampleData2,InRun>();
-*/
    //now do what ever other initialization is needed
-
    src_  = iConfig.getParameter<edm::InputTag>( "src" );
    produces<std::vector<bool>>( "tauID" ).setBranchAlias( "tauID" );
-  
+
+   edm::InputTag slimmedTauTag("slimmedTaus");
+   slimmedTausToken = consumes<pat::TauCollection>(slimmedTauTag);
+
+   graphFilePath = "/work/aissac/Tau/ML/output_smallDataset_2020-12-14_17-12-20/model_2020-12-14_17-31-57/saved_model.pb"
+
+   tauTensor = std::make_unique<tensorflow::Tensor>(
+      tensorflow::DT_FLOAT, tensorflow::TensorShape{1, nn_inputs::NumberOfInputs});
+   )
+
+   // load graph and add it to session
+   tensorflow::SessionOptions options;
+   tensorflow::setThreading(options, 1);
+   graphDef = tensorflow::loadGraphDef(graphFilePath);
+   session = tensorflow::createSession(graphDef, options);
 }
 
 
 TauIDProducer::~TauIDProducer()
 {
- 
-   // do anything here that needs to be done at destruction time
-   // (e.g. close files, deallocate resources etc.)
-
+   tensorflow::closeSession(session.second);
 }
+
 
 
 //
 // member functions
 //
+
+void createTauInputs(const pat::Tau& tau, const size_t& tau_index){
+   tensorflow::Tensor& inputs = *tauTensor;
+   inputs.flat<float>().setZero();
+
+   const auto& get = [&](int var_index) -> float& { return inputs.matrix<float>()(0, var_index); };
+
+   // TODO: select dxy < -999 || decayMode == 5 || decayMode == 6 here?
+   namespace nn = nn_inputs::TauInputs;
+   get(nn::Tau_pt) = tau.pt();
+   get(nn::Tau_eta) = tau.eta();
+   get(nn::Tau_phi) = tau.phi();
+   get(nn::Tau_mass) = tau.mass();
+   get(nn::Tau_dxy) = tau.dxy();
+   get(nn::Tau_decayMode) = tau.decayMode();
+   get(nn::Tau_ecalEnergy) = tau.ecalEnergy();
+   get(nn::Tau_hcalEnergy) = tau.hcalEnergy();
+   get(nn::Tau_ip3d) = tau.ip3d();
+}
+
+tensorflow::Tensor getPredictions(edm::Handle<pat::TauCollection> tausCollection){
+   tensorflow::Tensor predictions(tensorflow::DT_FLOAT, {static_cast<int>(tausCollection->size()), nn_inputs::NumberOfOutputs});
+   
+   for (size_t tau_index = 0; tau_index != tausCollection->size(); ++tau_index) {
+
+      std::vector<tensorflow::Tensor> pred_vector;
+      createTauInputs(tausCollection->at(tau_index), tau_index);
+      tensorflow::run(
+            &(session),
+            {{"input", *tauTensor}},
+            {"predictions"},
+            &pred_vector
+         );
+      for (int k = 0; k < nn_inputs::NumberOfOutputs; ++k) {
+         const float pred = pred_vector[0].flat<float>()(k);
+         if (!(pred >= 0 && pred <= 1))
+         throw cms::Exception("TauIDProducer")
+               << "invalid prediction = " << pred << " for tau_index = " << tau_index << ", pred_index = " << k;
+         predictions.matrix<float>()(tau_index, k) = pred;
+      }
+   }
+   return predictions;
+}
 
 // ------------ method called to produce the data  ------------
 void
@@ -107,24 +173,35 @@ TauIDProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
+      // Get Taus
+   edm::Handle<pat::TauCollection> slimmedTausCollection;
+   //iEvent.getByLabel(edm::InputTag("slimmedTaus"), slimmedTausCollection); <- for some reason doesn't
+   iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
+ 
+   // TODO: use same selection as TauAnalyzer
+   // std::vector<int> selectedTausIndices;
+   // value_tau_n = 0;
+   // for (auto it = slimmedTausCollection->begin(); it != slimmedTausCollection->end(); it++) {
+   //    const float dxy = (float)it->dxy();
+   //    const float decayMode = (float)it->decayMode();
+   //    // Selection rules
+   //    if(dxy < -990 || decayMode == 5 || decayMode == 6) continue;
+
+   //    value_tau_n++;
+   // }
+
+   const tensorflow::Tensor& pred = getPredictions(iEvent, slimmedTausCollection);
+   createOutput(iEvent, pred, slimmedTausCollection);
    
-/* This is an event example
-   //Read 'ExampleData' from the Event
-   Handle<ExampleData> pIn;
-   iEvent.getByLabel("example",pIn);
-
-   //Use the ExampleData to create an ExampleData2 which 
-   // is put into the Event
-   iEvent.put(std::make_unique<ExampleData2>(*pIn));
-*/
-
-/* this is an EventSetup example
-   //Read SetupData from the SetupRecord in the EventSetup
-   ESHandle<SetupData> pSetup;
-   iSetup.get<SetupRecord>().get(pSetup);
-*/
  
 }
+
+void TauIDProducer::createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection){
+   // TODO: ??? put predictions in event
+   auto result = 
+   event.put(std::move(result),)
+}
+
 
 // ------------ method called once each stream before processing any runs, lumis or events  ------------
 void

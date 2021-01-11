@@ -1,5 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 import sys
+from os import path
 
 process = cms.Process("TAU")
 
@@ -33,8 +34,7 @@ process.source = cms.Source("PoolSource",
                             )
 
 process.tauEDAnalyzer = cms.EDAnalyzer('TauAnalyzer')
-from os import path
-process.TFileService = cms.Service( "TFileService", fileName=cms.string(path.join(outputdir,"output_{:04d}_{}.root".format(arguments_jobID, dataset))))
+process.TFileService = cms.Service( "TFileService", fileName=cms.string(path.join(outputdir,"TauAnalyzer_output_{:04d}_{}.root".format(arguments_jobID, dataset))))
 # process.TFileService = cms.Service( "TFileService", fileName=cms.string("test.root"))
 
 process.p = cms.Path(process.tauEDAnalyzer)
