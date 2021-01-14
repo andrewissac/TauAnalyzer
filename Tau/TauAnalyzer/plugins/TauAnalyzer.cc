@@ -184,7 +184,7 @@ TauAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       const float dxy = (float)it->dxy();
       const float decayMode = (float)it->decayMode();
       // Selection rules
-      if(dxy < -990 || decayMode == 5 || decayMode == 6) continue;
+      if(dxy < -990 || decayMode == 5 || decayMode == 6 || decayMode == 7) continue;
 
       value_tau_pt = (float)it->pt();
       value_tau_eta = (float)it->eta();

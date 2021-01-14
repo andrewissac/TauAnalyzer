@@ -31,6 +31,7 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
+#include "DataFormats/TauReco/interface/TauDiscriminatorContainer.h"
 
 namespace nn_inputs{
    constexpr int NumberOfOutputs = 2;
@@ -74,17 +75,19 @@ class TauIDProducer : public edm::stream::EDProducer<> {
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
       // ----------member data ---------------------------
-      edm::InputTag src_;
       edm::EDGetTokenT<std::vector<pat::Tau>> slimmedTausToken;
 
       const std::string graphPath;
       tensorflow::GraphDef graph;
       tensorflow::Session* session;
-      std::unique_ptr<tensorflow::Tensor> tauTensor;
+      std::unique_ptr<tensorflow::Tensor> tauInputTensor;
 
       tensorflow::Tensor getPredictions(edm::Event& iEvent, edm::Handle<TauCollection> taus);
       void createTauInputs(const pat::Tau& tau,const size_t& tau_index);
-      void createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection)
+      void createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection);
+      std::unique_ptr<reco::TauDiscriminatorContainer> getOutputFromPredTensor(
+         const edm::Handle<TauCollection>& taus,
+         const tensorflow::Tensor& pred) const;
 };
 
 //
@@ -93,15 +96,13 @@ class TauIDProducer : public edm::stream::EDProducer<> {
 TauIDProducer::TauIDProducer(const edm::ParameterSet& iConfig)
 {
    //now do what ever other initialization is needed
-   src_  = iConfig.getParameter<edm::InputTag>( "src" );
-   produces<std::vector<bool>>( "tauID" ).setBranchAlias( "tauID" );
 
-   edm::InputTag slimmedTauTag("slimmedTaus");
+   edm::InputTag slimmedTauTag("slimmedTausNewID");
    slimmedTausToken = consumes<pat::TauCollection>(slimmedTauTag);
 
    graphFilePath = "/work/aissac/Tau/ML/output_smallDataset_2020-12-14_17-12-20/model_2020-12-14_17-31-57/saved_model.pb"
 
-   tauTensor = std::make_unique<tensorflow::Tensor>(
+   tauInputTensor = std::make_unique<tensorflow::Tensor>(
       tensorflow::DT_FLOAT, tensorflow::TensorShape{1, nn_inputs::NumberOfInputs});
    )
 
@@ -124,8 +125,8 @@ TauIDProducer::~TauIDProducer()
 // member functions
 //
 
-void createTauInputs(const pat::Tau& tau, const size_t& tau_index){
-   tensorflow::Tensor& inputs = *tauTensor;
+void TauIDProducer::createTauInputs(const pat::Tau& tau, const size_t& tau_index){
+   tensorflow::Tensor& inputs = *tauInputTensor;
    inputs.flat<float>().setZero();
 
    const auto& get = [&](int var_index) -> float& { return inputs.matrix<float>()(0, var_index); };
@@ -143,7 +144,7 @@ void createTauInputs(const pat::Tau& tau, const size_t& tau_index){
    get(nn::Tau_ip3d) = tau.ip3d();
 }
 
-tensorflow::Tensor getPredictions(edm::Handle<pat::TauCollection> tausCollection){
+tensorflow::Tensor TauIDProducer::getPredictions(edm::Handle<pat::TauCollection> tausCollection){
    tensorflow::Tensor predictions(tensorflow::DT_FLOAT, {static_cast<int>(tausCollection->size()), nn_inputs::NumberOfOutputs});
    
    for (size_t tau_index = 0; tau_index != tausCollection->size(); ++tau_index) {
@@ -152,7 +153,7 @@ tensorflow::Tensor getPredictions(edm::Handle<pat::TauCollection> tausCollection
       createTauInputs(tausCollection->at(tau_index), tau_index);
       tensorflow::run(
             &(session),
-            {{"input", *tauTensor}},
+            {{"input", *tauInputTensor}},
             {"predictions"},
             &pred_vector
          );
@@ -165,6 +166,27 @@ tensorflow::Tensor getPredictions(edm::Handle<pat::TauCollection> tausCollection
       }
    }
    return predictions;
+}
+
+std::unique_ptr<reco::TauDiscriminatorContainer> TauIDProducer::getOutputFromPredTensor(const edm::Handle<TauCollection>& taus,
+                                                                                       const tensorflow::Tensor& pred) const {
+   std::vector<reco::SingleTauDiscriminatorContainer> outputbuffer(taus->size());
+
+   for (size_t tau_index = 0; tau_index < taus->size(); ++tau_index) {
+      // TODO: check if (tau_index, 0) or (tau_index, 1)
+      float x = pred.matrix<float>()(tau_index, 0);
+      outputbuffer[tau_index].rawValues.push_back(x);
+   }
+   std::unique_ptr<reco::TauDiscriminatorContainer> output = std::make_unique<reco::TauDiscriminatorContainer>();
+   reco::TauDiscriminatorContainer::Filler filler(*output);
+   filler.insert(taus, outputbuffer.begin(), outputbuffer.end());
+   filler.fill();
+   return output;
+}
+
+void TauIDProducer::createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection){
+   auto result = getOutputFromPredTensor(slimmedTausCollection, pred);
+   iEvent.put(std::move(result))
 }
 
 // ------------ method called to produce the data  ------------
@@ -192,14 +214,6 @@ TauIDProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
    const tensorflow::Tensor& pred = getPredictions(iEvent, slimmedTausCollection);
    createOutput(iEvent, pred, slimmedTausCollection);
-   
- 
-}
-
-void TauIDProducer::createOutputs(edm::Event& iEvent, const tensorflow::Tensor& pred, edm::Handle<TauCollection> slimmedTausCollection){
-   // TODO: ??? put predictions in event
-   auto result = 
-   event.put(std::move(result),)
 }
 
 
