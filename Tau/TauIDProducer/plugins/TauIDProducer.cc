@@ -113,6 +113,8 @@ TauIDProducer::TauIDProducer(const edm::ParameterSet& iConfig)
    tensorflow::setThreading(options, 1);
    graphDef = tensorflow::loadGraphDef(graphFilePath);
    session = tensorflow::createSession(graphDef, options);
+
+   produces<TauDiscriminator>();
 }
 
 
@@ -148,15 +150,15 @@ void TauIDProducer::createTauInputs(const pat::Tau& tau, const size_t& tau_index
 
 tensorflow::Tensor TauIDProducer::getPredictions(edm::Handle<TauCollection> tausCollection){
    tensorflow::Tensor predictions(tensorflow::DT_FLOAT, {static_cast<int>(tausCollection->size()), nn_inputs::NumberOfOutputs});
-   
    for (size_t tau_index = 0; tau_index != tausCollection->size(); ++tau_index) {
-
       std::vector<tensorflow::Tensor> pred_vector;
       createTauInputs(tausCollection->at(tau_index), tau_index);
       tensorflow::run(
             session,
-            {{"input", *tauInputTensor}},
-            {"predictions"},
+            // {{"input", *tauInputTensor}},
+            // {"predictions"},
+            {{"x:0", *tauInputTensor}}, // python train.py -> freezing the graph changed the input layer name to x:0 
+            {"Identity:0"}, // python train.py -> freezing the graph changed the input layer name to Identity:0 
             &pred_vector
          );
       for (int k = 0; k < nn_inputs::NumberOfOutputs; ++k) {
@@ -192,12 +194,11 @@ TauIDProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
-      // Get Taus
+   // Get Taus
    edm::Handle<TauCollection> slimmedTausCollection;
-   //iEvent.getByLabel(edm::InputTag("slimmedTaus"), slimmedTausCollection); <- for some reason doesn't
    iEvent.getByToken(slimmedTausToken, slimmedTausCollection);
  
-   // TODO: use same selection as TauAnalyzer
+   // TODO: use same selection as TauAnalyzer?
    // std::vector<int> selectedTausIndices;
    // value_tau_n = 0;
    // for (auto it = slimmedTausCollection->begin(); it != slimmedTausCollection->end(); it++) {
